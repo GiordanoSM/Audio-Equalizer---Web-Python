@@ -3,34 +3,41 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlb
 from scipy.io.wavfile import read, write
 from numpy.fft import fft, fftfreq
+from scipy import signal
 
 def main ():
-  Fs, data = read('Grave.wav')
+  Fs, data = read('amb.wav')
+
+  debug = True
+
+  mult = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  mult = change_values(mult)
 
   data = data[:,0]
   print("Sampling Frequency is", Fs)
 
-  plt.figure(1)
-  plt.plot(data)
-  plt.xlabel('Sample Index')
-  plt.ylabel('Amplitude')
-  plt.title('Waveform of Test Audio')
+  if debug:
+    plt.figure(1)
+    plt.plot(data)
+    plt.xlabel('Sample Index')
+    plt.ylabel('Amplitude')
+    plt.title('Waveform of Test Audio')
 
-  fft_data = fft(data)
-  freq = fftfreq(data.size,d=1/Fs)[0:data.size//2]
+    fft_data = fft(data)
+    freq = fftfreq(data.size,d=1/Fs)[0:data.size//2]
 
-  plt.figure(2)
-  plt.plot(freq, np.absolute(fft_data)[0:data.size//2])
-  plt.xlabel('Frequência (rad/sample)')
-  plt.ylabel('Amplitude')
-  plt.title('FFT')
+    plt.figure(2)
+    plt.plot(freq, np.absolute(fft_data)[0:data.size//2])
+    plt.xlabel('Frequência (rad/sample)')
+    plt.ylabel('Amplitude')
+    plt.title('FFT')
 
-  #plt.figure(3)
-  #plt.magnitude_spectrum(data, Fs=Fs, scale='dB',window= mlb.window_none)
+    #plt.figure(3)
+    #plt.magnitude_spectrum(data, Fs=Fs, scale='dB',window= mlb.window_none)
 
-  #plt.figure(4)
-  #plt.phase_spectrum(data, Fs=Fs, window= mlb.window_none)
-  #plt.show()
+    #plt.figure(4)
+    #plt.phase_spectrum(data, Fs=Fs, window= mlb.window_none)
+    #plt.show()
 
   M = 50
   window = np.hamming(M+1)
@@ -47,6 +54,7 @@ def main ():
   filter_32 = makePassBandFilter(omega_c1= 21, omega_c2= 43, omega_s= Fs, ordemM= M, window= window) #(faixa = 21 a 43)
 
   filters = [filter_32, filter_64, filter_125, filter_250, filter_500, filter_1k, filter_2k, filter_4k, filter_8k, filter_16k]
+  filters = [x * np.array(y) for x, y in zip(mult, filters)]
 
   freq2 = range(0, Fs//2)
   
@@ -55,36 +63,56 @@ def main ():
   filters_sum = [0]*(M+1)
 
   for f in filters:
-    A = fft(f, Fs)
+    #A = fft(f, Fs)
+    #mag = np.abs(A)[0:A.size//2]
+
+    #plt.figure(i)
+    #plt.plot(freq2, mag)
+    #plt.xlabel('Frequência (rad/sample)')
+    #plt.ylabel('Amplitude')
+    #plt.title('FFT Filtro {}'.format(i-5))
+    #plt.show()
+    #i += 1 
+    filters_sum = [x + y for x,y in zip(f, filters_sum)]
+
+  data_out = signal.convolve(data, filters_sum, mode='same')
+  
+  if debug:
+    A = fft(filters_sum, Fs)
     mag = np.abs(A)[0:A.size//2]
 
-    plt.figure(i)
+    plt.figure(3)
     plt.plot(freq2, mag)
     plt.xlabel('Frequência (rad/sample)')
     plt.ylabel('Amplitude')
-    plt.title('FFT Filtro {}'.format(i-5))
-    plt.show()
-    i += 1 
-    filters_sum = [x + y for x,y in zip(f, filters_sum)]
-  
-  A = fft(filters_sum, Fs)
-  mag = np.abs(A)[0:A.size//2]
+    plt.title('FFT Filtro Somado')
 
-  plt.figure(i)
-  plt.plot(freq2, mag)
-  plt.xlabel('Frequência (rad/sample)')
-  plt.ylabel('Amplitude')
-  plt.title('FFT Filtro Somado')
+    plt.figure(4)
+    plt.plot(data_out)
+    plt.xlabel('Sample Index')
+    plt.ylabel('Amplitude')
+    plt.title('Waveform of Test Audio Output')
+
+    fft_data_out = fft(data_out)
+    freq_out = fftfreq(data_out.size,d=1/Fs)[0:data_out.size//2]
+
+    plt.figure(5)
+    plt.plot(freq_out, np.absolute(fft_data_out)[0:data_out.size//2])
+    plt.xlabel('Frequência (rad/sample)')
+    plt.ylabel('Amplitude')
+    plt.title('FFT out')
+
   plt.show()
-  i += 1 
 
-  write('out.wav', Fs, data)
+  print(data.size)
+  print(data_out.size)
+
+  write('out.wav', Fs, data_out.astype(np.float32))
 
 def makePassBandFilter (omega_c1, omega_c2, omega_s, ordemM, window = None):
   
   wc1 = 2 * np.pi * omega_c1/omega_s
   wc2 = 2 * np.pi * omega_c2/omega_s
-  print(wc1, wc2)
 
   n = list(range(1, ordemM//2))
 
@@ -95,6 +123,11 @@ def makePassBandFilter (omega_c1, omega_c2, omega_s, ordemM, window = None):
   filtro_rect = haux[::-1] + [h0] + haux
 
   return [x * y for x,y in zip(filtro_rect, window)] if window is not None else filtro_rect
+
+def change_values (mult):
+  value = -6
+  mult[3] = 10**(value/20)
+  return mult
 
 if __name__ == "__main__":
   main()
