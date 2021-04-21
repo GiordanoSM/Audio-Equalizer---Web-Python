@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 import os
 import audio
+import numpy as np
 
 def runGUI (Fs, filters):
 
@@ -27,12 +28,30 @@ def runGUI (Fs, filters):
     ]
   ]
 
+  bars_line = [
+    [
+      sg.Column([[bandBar("32")]]),
+      sg.Column([[bandBar("64")]]),
+      sg.Column([[bandBar("125")]]),
+      sg.Column([[bandBar("250")]]),
+      sg.Column([[bandBar("500")]]),
+      sg.Column([[bandBar("1k")]]),
+      sg.Column([[bandBar("2k")]]),
+      sg.Column([[bandBar("4k")]]),
+      sg.Column([[bandBar("8k")]]),
+      sg.Column([[bandBar("16k")]])
+    ]
+]
+
   layout = [
     [file_list_line],
+    [sg.Frame("Bands", bars_line, key='-FRAME_BARS-')],
     [sg.Frame("None",sliders_line, key="-FRAME-")],
     [ImageButton('play', '-PLAY-'), ImageButton('pause', '-PAUSE-'), ImageButton('stop', '-STOP-')],
     [
-      sg.VSeparator()
+      sg.Button("Debug (On/Off)",border_width=0, key='-DEBUG-', button_color= "red"),
+      sg.VSeparator(), 
+      sg.Exit(key="Exit")
     ]
   ]
   #layout = [[sg.Text("Hello here")], [sg.Button("OK")]]
@@ -41,6 +60,7 @@ def runGUI (Fs, filters):
 
   ready=False
 
+  debug=False
 
   while True:
     event, values = window.read()
@@ -77,12 +97,21 @@ def runGUI (Fs, filters):
                 audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
                 audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
         print(mult)        
-        data_out = audio.processAudio(filename, filters, Fs, mult)
-        band_values = audio.getBandValues(data_out, Fs)
+        data_out, wav_type = audio.processAudio(filename, filters, Fs, mult, debug)
+        band_values = audio.getBandValues(data_out, Fs, wav_type)
+        updateBandBars(window, band_values)
         print(band_values)
 
     elif event == "-RESET-":
       resetSliders(window)
+
+    elif event == "-STOP-":
+      window["-FRAME-"].update("None")
+      ready = False
+
+    elif event == "-DEBUG-":
+      debug = not debug
+      window["-DEBUG-"].update(button_color="green" if debug else "red")
 
   window.close()
 
@@ -126,3 +155,24 @@ def resetSliders(window):
   window["-SLIDER4k-"].update(0)
   window["-SLIDER8k-"].update(0)
   window["-SLIDER16k-"].update(0)
+
+#----------------------------------------
+
+def bandBar (name):
+  progBar = sg.ProgressBar(1, orientation='v', key='-BAR{}-'.format(name), size=(20,20))
+  return progBar
+
+#-------------------------------------
+
+def updateBandBars (window, band_values):
+  max_v = np.max(band_values)
+  window["-BAR32-"].update(band_values[0], max= max_v)
+  window["-BAR64-"].update(band_values[1], max= max_v)
+  window["-BAR125-"].update(band_values[2], max= max_v)
+  window["-BAR250-"].update(band_values[3], max= max_v)
+  window["-BAR500-"].update(band_values[4], max= max_v)
+  window["-BAR1k-"].update(band_values[5], max= max_v)
+  window["-BAR2k-"].update(band_values[6], max= max_v)
+  window["-BAR4k-"].update(band_values[7], max= max_v)
+  window["-BAR8k-"].update(band_values[8], max= max_v)
+  window["-BAR16k-"].update(band_values[9], max= max_v)

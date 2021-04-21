@@ -13,7 +13,7 @@ def main ():
 
   print("Sampling Frequency is", Fs)
 
-  M = 50
+  M = 300
   window = np.hamming(M+1)
 
   filter_16k = makePassBandFilter(omega_c1= 10665, omega_c2= 21335, omega_s= Fs, ordemM= M, window= window) #(faixa = 10665 a 21335)
@@ -32,29 +32,34 @@ def main ():
   gui.runGUI(44100, filters)
 
 
-def processAudio (filename, filters, Fs, mult):
-
-  debug = False
+def processAudio (filename, filters, Fs, mult, debug):
 
   filters = [x * np.array(y) for x, y in zip(mult, filters)]
 
   freq2 = range(0, Fs//2)
   
-  i = 5
+  i = 10
 
   filters_sum = [0]*filters[0].size
 
-  for f in filters:
-    #A = fft(f, Fs)
-    #mag = np.abs(A)[0:A.size//2]
 
-    #plt.figure(i)
-    #plt.plot(freq2, mag)
-    #plt.xlabel('Frequência (rad/sample)')
-    #plt.ylabel('Amplitude')
-    #plt.title('FFT Filtro {}'.format(i-5))
-    #plt.show()
-    #i += 1 
+  #if debug:
+    #plt.figure(6)
+
+  for f in filters:
+    if debug:
+      plt.figure(i)
+      A = fft(f, Fs)
+      mag = np.abs(A)[0:A.size//2]
+      mag2 = [20*np.log10(x) for x in mag]
+      plt.plot(freq2, mag)
+      plt.xlabel('Frequência')
+      plt.ylabel('Amplitude [dB]')
+      plt.title('FFT Filtro {}'.format(i-10))
+
+      i += 1
+      
+
     filters_sum = [x + y for x,y in zip(f, filters_sum)]
 
   Fs, data = read(filename)
@@ -63,11 +68,16 @@ def processAudio (filename, filters, Fs, mult):
   data_out = signal.convolve(data, filters_sum, mode='same')
 
   if debug:
-    plt.figure(1)
-    plt.plot(data)
-    plt.xlabel('Sample Index')
-    plt.ylabel('Amplitude')
-    plt.title('Waveform of Test Audio')
+
+    #plt.xlabel('Frequência')
+    #plt.ylabel('Amplitude [dB]')
+    #plt.title('FFT Filtros')
+
+    #plt.figure(1)
+    #plt.plot(data)
+    #plt.xlabel('Sample Index')
+    #plt.ylabel('Amplitude')
+    #plt.title('Waveform of Test Audio')
 
     fft_data = fft(data)
     freq = fftfreq(data.size,d=1/Fs)[0:data.size//2]
@@ -94,11 +104,11 @@ def processAudio (filename, filters, Fs, mult):
     plt.ylabel('Amplitude')
     plt.title('FFT Filtro Somado')
 
-    plt.figure(4)
-    plt.plot(data_out)
-    plt.xlabel('Sample Index')
-    plt.ylabel('Amplitude')
-    plt.title('Waveform of Test Audio Output')
+    #plt.figure(4)
+    #plt.plot(data_out)
+    #plt.xlabel('Sample Index')
+    #plt.ylabel('Amplitude')
+    #plt.title('Waveform of Test Audio Output')
 
     fft_data_out = fft(data_out)
     freq_out = fftfreq(data_out.size,d=1/Fs)[0:data_out.size//2]
@@ -113,14 +123,21 @@ def processAudio (filename, filters, Fs, mult):
 
   #print(data.size)
   #print(data_out.size)
+  wav_type = 0
 
   if np.max(data) > 1:
     if np.min(data) >= 0:
+      wav_type = 3
       data_out = data_out.astype(np.uint8)
       play_obj = sa.play_buffer(data_out, 1, 1, Fs)
-    else:
+    elif np.max(data) <= 32767:
+      wav_type = 2
       data_out = data_out.astype(np.int16)
       play_obj = sa.play_buffer(data_out, 1, 2, Fs)
+    else:
+      wav_type = 4
+      data_out = data_out.astype(np.int32)
+      play_obj = sa.play_buffer(data_out, 1, 4, Fs)
   else : 
     data_out = data_out.astype(np.float32)
     play_obj = sa.play_buffer(data_out, 1, 4, Fs)
@@ -129,7 +146,7 @@ def processAudio (filename, filters, Fs, mult):
 
   write('out.wav', Fs, data_out)
 
-  return data_out
+  return data_out, wav_type
 
 #------------------------------------
 
@@ -155,7 +172,7 @@ def IfromDB (value):
 
 #------------------------------------
 
-def getBandValues (data_out, Fs):
+def getBandValues (data_out, Fs, wav_type):
   
   band_values = []
   fft_values = fft(data_out, Fs)
