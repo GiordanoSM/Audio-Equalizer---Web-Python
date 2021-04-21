@@ -4,11 +4,14 @@ import matplotlib.mlab as mlb
 from scipy.io.wavfile import read, write
 from numpy.fft import fft, fftfreq
 from scipy import signal
+import simpleaudio as sa
+import PySimpleGUI as sg
+import os
 
 def main ():
   Fs, data = read('amb.wav')
 
-  debug = True
+  debug = False
 
   mult = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   mult = change_values(mult)
@@ -107,7 +110,12 @@ def main ():
   print(data.size)
   print(data_out.size)
 
-  write('out.wav', Fs, data_out.astype(np.float32))
+  data_out = data_out.astype(np.float32)
+
+  play_obj = sa.play_buffer(data_out, 1, 4, Fs)
+  #play_obj.wait_done()
+
+  write('out.wav', Fs, data_out)
 
 def makePassBandFilter (omega_c1, omega_c2, omega_s, ordemM, window = None):
   
@@ -129,5 +137,70 @@ def change_values (mult):
   mult[3] = 10**(value/20)
   return mult
 
+def GUI ():
+
+  file_list_column = [
+    [
+      sg.Text("Wav file:"),
+      sg.In(size=(25,1), enable_events=True, key="-FILE-"),
+      sg.FileBrowse()
+    ],
+    [
+      sg.Text(size=(10,10), key="-FEEDBACK-")
+    ]
+  ]
+
+  slider_column = [
+    [
+      sg.Slider((-30, 10), 0, -30,
+                orientation="v",
+                size=(15,15),
+                key="-SLIDER-")
+    ]
+  ]
+
+  image_viewer_column = [
+    [sg.Text("Choose an image:")],
+    [sg.Text(size=(40,1), key="-TOUT-")],
+    [sg.Image(key="-IMAGE-")]
+  ]
+
+  layout = [
+    [
+      sg.Column(file_list_column),
+      sg.VSeparator(),
+      sg.Column(slider_column),
+      sg.VSeparator(),
+      sg.Column(image_viewer_column)
+    ]
+  ]
+  #layout = [[sg.Text("Hello here")], [sg.Button("OK")]]
+
+  window = sg.Window(title= "Musiquina", layout=layout, margins= (100, 50))
+
+  while True:
+    event, values = window.read()
+    if event == "Exit" or event == sg.WIN_CLOSED:
+      break
+
+    if event == "-FILE-":
+      fname = values["-FILE-"]
+
+      try:
+        filename = fname if os.path.isfile(fname) and fname.lower().endswith(".wav") else ""
+        if filename == "": raise Exception("Arquivo não do tipo '.wav'")
+        else : window["-FEEDBACK-"].update("OK")
+
+      except:
+        window["-FEEDBACK-"].update("Formato não suportado!")
+      
+      #window["-FILE LIST-"].update(values=fnames)
+
+  window.close()
+
+  def bandSlide (name):
+    pass
+
 if __name__ == "__main__":
   main()
+  GUI()
