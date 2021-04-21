@@ -32,7 +32,7 @@ def main ():
   gui.runGUI(44100, filters)
 
 
-def process_audio (filename, filters, Fs, mult):
+def processAudio (filename, filters, Fs, mult):
 
   debug = False
 
@@ -155,8 +155,23 @@ def IfromDB (value):
 
 #------------------------------------
 
-def play_file (filename):
-  return None
+def getBandValues (data_out, Fs):
+  
+  band_values = []
+  fft_values = fft(data_out, Fs)
+
+  band_values.append(np.mean(fft_values[21:43]))
+  band_values.append(np.mean(fft_values[43:85]))
+  band_values.append(np.mean(fft_values[85:165]))
+  band_values.append(np.mean(fft_values[165:335]))
+  band_values.append(np.mean(fft_values[335:665]))
+  band_values.append(np.mean(fft_values[665:1335]))
+  band_values.append(np.mean(fft_values[1335:2665]))
+  band_values.append(np.mean(fft_values[2665:5335]))
+  band_values.append(np.mean(fft_values[5335:10665]))
+  band_values.append(np.mean(fft_values[10665:21334]))
+
+  return np.absolute(band_values)
 
 if __name__ == "__main__":
   main()

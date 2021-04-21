@@ -13,7 +13,7 @@ def runGUI (Fs, filters):
 
   sliders_line = [
     [
-      sg.Text("dB"),
+      sg.Column([[sg.Text("dB")], [sg.Button("Reset values", key="-RESET-")]]),
       sg.Column(bandSlide("32")),
       sg.Column(bandSlide("64")),
       sg.Column(bandSlide("125")),
@@ -77,9 +77,12 @@ def runGUI (Fs, filters):
                 audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
                 audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
         print(mult)        
-        data_out = audio.process_audio(filename, filters, Fs, mult)
+        data_out = audio.processAudio(filename, filters, Fs, mult)
+        band_values = audio.getBandValues(data_out, Fs)
+        print(band_values)
 
-      #window["-FILE LIST-"].update(values=fnames)
+    elif event == "-RESET-":
+      resetSliders(window)
 
   window.close()
 
@@ -109,3 +112,17 @@ def bandSlide (name):
 def ImageButton(title, key):
   return sg.Button(title,
                   border_width=0, key=key)
+
+#--------------------------------------
+
+def resetSliders(window):
+  window["-SLIDER32-"].update(0)
+  window["-SLIDER64-"].update(0)
+  window["-SLIDER125-"].update(0)
+  window["-SLIDER250-"].update(0)
+  window["-SLIDER500-"].update(0)
+  window["-SLIDER1k-"].update(0)
+  window["-SLIDER2k-"].update(0)
+  window["-SLIDER4k-"].update(0)
+  window["-SLIDER8k-"].update(0)
+  window["-SLIDER16k-"].update(0)
