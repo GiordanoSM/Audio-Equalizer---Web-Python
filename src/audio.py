@@ -6,14 +6,15 @@ from numpy.fft import fft, fftfreq
 from scipy import signal
 import simpleaudio as sa
 import gui
+#PyAudio
 
 def main ():
 
   Fs = 44100
 
-  print("Sampling Frequency is", Fs)
+  #print("Sampling Frequency is", Fs)
 
-  M = 300
+  M = 1000
   window = np.hamming(M+1)
 
   filter_16k = makePassBandFilter(omega_c1= 10665, omega_c2= 21335, omega_s= Fs, ordemM= M, window= window) #(faixa = 10665 a 21335)
@@ -42,36 +43,50 @@ def processAudio (filename, filters, Fs, mult, debug):
 
   filters_sum = [0]*filters[0].size
 
+  somas = []
 
-  #if debug:
-    #plt.figure(6)
+  if debug:
+    plt.figure(6)
 
   for f in filters:
     if debug:
-      plt.figure(i)
+      #plt.figure(i)
       A = fft(f, Fs)
       mag = np.abs(A)[0:A.size//2]
       mag2 = [20*np.log10(x) for x in mag]
-      plt.plot(freq2, mag)
-      plt.xlabel('Frequência')
-      plt.ylabel('Amplitude [dB]')
-      plt.title('FFT Filtro {}'.format(i-10))
+      plt.plot(freq2, mag2)
+      somas.append(sum(f))
+      #plt.xlabel('Frequência')
+      #plt.ylabel('Amplitude [dB]')
+      #plt.title('FFT Filtro {}'.format(i-10))
 
       i += 1
       
 
     filters_sum = [x + y for x,y in zip(f, filters_sum)]
 
+  print(somas)
+
   Fs, data = read(filename)
-  data = data[:,0]
+  data = np.array(data[:,0])
+
+  #Changing the WAV type to int 16bits PCM
+  if np.max(data) > 1:
+    if np.min(data) >= 0 and np.max(data)<= 255:
+      raise Exception("formato WAV 8-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
+    elif np.max(data) > 32767 or np.min(data) < -32767:
+      raise Exception("formato WAV 32-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
+  else: 
+    data = 32767*data
 
   data_out = signal.convolve(data, filters_sum, mode='same')
+  data_out = data_out.astype(np.int16)
 
   if debug:
 
-    #plt.xlabel('Frequência')
-    #plt.ylabel('Amplitude [dB]')
-    #plt.title('FFT Filtros')
+    plt.xlabel('Frequência')
+    plt.ylabel('Amplitude [dB]')
+    plt.title('FFT Filtros')
 
     #plt.figure(1)
     #plt.plot(data)
@@ -97,11 +112,12 @@ def processAudio (filename, filters, Fs, mult, debug):
 
     A = fft(filters_sum, Fs)
     mag = np.abs(A)[0:A.size//2]
+    mag2 = [20*np.log10(x) for x in mag]
 
     plt.figure(3)
-    plt.plot(freq2, mag)
+    plt.plot(freq2, mag2)
     plt.xlabel('Frequência (rad/sample)')
-    plt.ylabel('Amplitude')
+    plt.ylabel('Amplitude (dB)')
     plt.title('FFT Filtro Somado')
 
     #plt.figure(4)
@@ -122,31 +138,14 @@ def processAudio (filename, filters, Fs, mult, debug):
     plt.show()
 
   #print(data.size)
-  #print(data_out.size)
-  wav_type = 0
-
-  if np.max(data) > 1:
-    if np.min(data) >= 0:
-      wav_type = 3
-      data_out = data_out.astype(np.uint8)
-      play_obj = sa.play_buffer(data_out, 1, 1, Fs)
-    elif np.max(data) <= 32767:
-      wav_type = 2
-      data_out = data_out.astype(np.int16)
-      play_obj = sa.play_buffer(data_out, 1, 2, Fs)
-    else:
-      wav_type = 4
-      data_out = data_out.astype(np.int32)
-      play_obj = sa.play_buffer(data_out, 1, 4, Fs)
-  else : 
-    data_out = data_out.astype(np.float32)
-    play_obj = sa.play_buffer(data_out, 1, 4, Fs)
+  #print(np.max(data_out))
 
   #play_obj.wait_done()
 
+  play_obj = sa.play_buffer(data_out, 1, 2, Fs)
   write('out.wav', Fs, data_out)
 
-  return data_out, wav_type
+  return data_out
 
 #------------------------------------
 
@@ -172,23 +171,23 @@ def IfromDB (value):
 
 #------------------------------------
 
-def getBandValues (data_out, Fs, wav_type):
+def getBandValues (data_out, Fs):
   
   band_values = []
   fft_values = fft(data_out, Fs)
 
-  band_values.append(np.mean(fft_values[21:43]))
-  band_values.append(np.mean(fft_values[43:85]))
-  band_values.append(np.mean(fft_values[85:165]))
-  band_values.append(np.mean(fft_values[165:335]))
-  band_values.append(np.mean(fft_values[335:665]))
-  band_values.append(np.mean(fft_values[665:1335]))
-  band_values.append(np.mean(fft_values[1335:2665]))
-  band_values.append(np.mean(fft_values[2665:5335]))
-  band_values.append(np.mean(fft_values[5335:10665]))
-  band_values.append(np.mean(fft_values[10665:21334]))
+  band_values.append(np.mean(np.abs(fft_values[21:43])))
+  band_values.append(np.mean(np.abs(fft_values[43:85])))
+  band_values.append(np.mean(np.abs(fft_values[85:165])))
+  band_values.append(np.mean(np.abs(fft_values[165:335])))
+  band_values.append(np.mean(np.abs(fft_values[335:665])))
+  band_values.append(np.mean(np.abs(fft_values[665:1335])))
+  band_values.append(np.mean(np.abs(fft_values[1335:2665])))
+  band_values.append(np.mean(np.abs(fft_values[2665:5335])))
+  band_values.append(np.mean(np.abs(fft_values[5335:10665])))
+  band_values.append(np.mean(np.abs(fft_values[10665:21334])))
 
-  return np.absolute(band_values)
+  return band_values
 
 if __name__ == "__main__":
   main()

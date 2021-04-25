@@ -30,6 +30,7 @@ def runGUI (Fs, filters):
 
   bars_line = [
     [
+      sg.Column([[sg.Text(key="-VBARMAX-")]]),
       sg.Column([[bandBar("32")]]),
       sg.Column([[bandBar("64")]]),
       sg.Column([[bandBar("125")]]),
@@ -96,11 +97,11 @@ def runGUI (Fs, filters):
         mult = [audio.IfromDB(values["-SLIDER32-"]), audio.IfromDB(values["-SLIDER64-"]), audio.IfromDB(values["-SLIDER125-"]),
                 audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
                 audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
-        print(mult)        
-        data_out, wav_type = audio.processAudio(filename, filters, Fs, mult, debug)
-        band_values = audio.getBandValues(data_out, Fs, wav_type)
+        #print(mult)        
+        data_out = audio.processAudio(filename, filters, Fs, mult, debug)
+        band_values = audio.getBandValues(data_out, Fs)
         updateBandBars(window, band_values)
-        print(band_values)
+        #print(band_values)
 
     elif event == "-RESET-":
       resetSliders(window)
@@ -123,7 +124,7 @@ class WrongFormat(Exception):
 def bandSlide (name):
   slider_column = [
     [
-      sg.Slider((-30, 10), 0, 1,
+      sg.Slider((-20, 20), 0, 1,
                 orientation="v",
                 size=(7,15),
                 key="-SLIDER{}-".format(name)
@@ -165,14 +166,9 @@ def bandBar (name):
 #-------------------------------------
 
 def updateBandBars (window, band_values):
+  names=["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]
   max_v = np.max(band_values)
-  window["-BAR32-"].update(band_values[0], max= max_v)
-  window["-BAR64-"].update(band_values[1], max= max_v)
-  window["-BAR125-"].update(band_values[2], max= max_v)
-  window["-BAR250-"].update(band_values[3], max= max_v)
-  window["-BAR500-"].update(band_values[4], max= max_v)
-  window["-BAR1k-"].update(band_values[5], max= max_v)
-  window["-BAR2k-"].update(band_values[6], max= max_v)
-  window["-BAR4k-"].update(band_values[7], max= max_v)
-  window["-BAR8k-"].update(band_values[8], max= max_v)
-  window["-BAR16k-"].update(band_values[9], max= max_v)
+  for i in range(len(names)):
+    window["-BAR{}-".format(names[i])].update(band_values[i], max= max_v)
+
+  #window["-VBARMAX-".format(names[i])].update(int(band_values[i]))
