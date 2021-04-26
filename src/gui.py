@@ -109,7 +109,8 @@ def runGUI (Fs):
           filename_ready = filename
           window["-FRAME-"].update(filename_ready)
           Fs, data = read(filename)
-          data = np.array(data[:,0])
+          if data.ndim > 1 :
+            data = data[:,0]
           ready=True
 
       except WrongFormat:
