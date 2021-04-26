@@ -8,7 +8,6 @@ import pyaudio
 import gui
 
 def getFilters(Fs, M):
-  #print("Sampling Frequency is", Fs)
 
   window = np.hamming(M+1)
 
@@ -31,6 +30,7 @@ def getFilters(Fs, M):
 def processAudio (data, filters, Fs, mult, debug):
 
   filters = [x * np.array(y) for x, y in zip(mult, filters)]
+  print(mult)
 
   freq2 = range(0, Fs//2)
   
@@ -85,10 +85,10 @@ def processAudio (data, filters, Fs, mult, debug):
     #plt.title('Waveform of Test Audio')
 
     fft_data = fft(data)
-    freq = fftfreq(data.size,d=1/Fs)[0:data.size//2]
+    freq = fftfreq(len(data),d=1/Fs)[0:len(data)//2]
 
     plt.figure(2)
-    plt.plot(freq, np.absolute(fft_data)[0:data.size//2])
+    plt.plot(freq, np.absolute(fft_data)[0:len(data)//2])
     plt.xlabel('Frequência (rad/sample)')
     plt.ylabel('Amplitude')
     plt.title('FFT')
@@ -179,26 +179,27 @@ def getBandValues (data_out, Fs):
 
 #----------------------------------
 
-def setStream(data, filters, Fs, mult, window, debug):
+def setStream(data, filters, Fs, window, debug):
   p = pyaudio.PyAudio()
 
   stream = p.open(format=pyaudio.paInt16,
                   channels=1,
                   rate=Fs,
                   output=True,
-                  stream_callback=callback_maker(data, filters, Fs, mult, window, debug)
+                  frames_per_buffer=4410,
+                  stream_callback=callback_maker(data, filters, Fs, window, debug)
                   )
                   
-  return stream
+  return stream, p
 
 #-----------------------------------
 
-def callback_maker(data, filters, Fs, mult, window, debug):
+def callback_maker(data, filters, Fs, window, debug):
     def callback(in_data, frame_count, time_info, status_flags):
-        data_out = processAudio(data[:1024], filters, Fs, mult, debug)
+        data_out = processAudio(data[:frame_count], filters, Fs, gui.mult_obj.value, debug)
         band_values = getBandValues(data_out, Fs)
         gui.updateBandBars(window, band_values)
-        del data[:1024]
+        del data[:frame_count]
         return (data_out.tobytes(), pyaudio.paContinue)
     return callback
 
@@ -209,6 +210,8 @@ def readData (filename):
   Fs, data = read(filename)
   data = np.array(data[:,0])
   return data, Fs
+
+#------------------------------------
 
 if __name__ == "__main__":
   gui.runGUI(44100)

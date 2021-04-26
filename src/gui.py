@@ -52,7 +52,7 @@ def runGUI (Fs):
     [file_list_line],
     [sg.Frame("Bands", bars_line, key='-FRAME_BARS-')],
     [sg.Frame("None",sliders_line, key="-FRAME-")],
-    [ImageButton('play', '-PLAY-'), ImageButton('pause', '-PAUSE-'), ImageButton('stop', '-STOP-')],
+    [ImageButton('play', '-PLAY-'), ImageButton('stop', '-STOP-')],
     [
       sg.Button("Debug (On/Off)",border_width=0, key='-DEBUG-', button_color= "red"),
       sg.VSeparator(), 
@@ -75,9 +75,22 @@ def runGUI (Fs):
 
   stream=None
 
+  p=None
+
   while True:
-    event, values = window.read()
+    event, values = window.read(250)
+
+    mult_obj.value = [audio.IfromDB(values["-SLIDER32-"]), audio.IfromDB(values["-SLIDER64-"]), audio.IfromDB(values["-SLIDER125-"]),
+              audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
+              audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
+
     if event == "Exit" or event == sg.WIN_CLOSED:
+      if stream != None:
+        stream.stop_stream()
+        stream.close()
+
+      if p != None:
+        p.terminate()
       break
 
     if event == "-FILE-":
@@ -107,14 +120,10 @@ def runGUI (Fs):
 
     elif event == "-PLAY-":
       
-      if playing: print("Wait until music stops.")
+      if playing: print("Press stop first.")
 
       elif ready:
-        mult = [audio.IfromDB(values["-SLIDER32-"]), audio.IfromDB(values["-SLIDER64-"]), audio.IfromDB(values["-SLIDER125-"]),
-                audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
-                audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
-
-        stream = audio.setStream(data.tolist(), filters, Fs, mult, window, debug)
+        stream, p = audio.setStream(data.tolist(), filters, Fs, window, debug)
         stream.start_stream()
         playing=True
 
@@ -148,7 +157,8 @@ def bandSlide (name):
       sg.Slider((-20, 20), 0, 1,
                 orientation="v",
                 size=(7,15),
-                key="-SLIDER{}-".format(name)
+                key="-SLIDER{}-".format(name),
+                enable_events=False
                 )
     ],
     [
@@ -193,3 +203,11 @@ def updateBandBars (window, band_values):
     window["-BAR{}-".format(names[i])].update(band_values[i], max= max_v)
 
   #window["-VBARMAX-".format(names[i])].update(int(band_values[i]))
+#------------------------------------
+class FooWrapper(object):
+    def __init__(self, value):
+         self.value = value
+#----------------------------------
+
+
+mult_obj = FooWrapper([])
