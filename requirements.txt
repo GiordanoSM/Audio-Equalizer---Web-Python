@@ -2,7 +2,5 @@ numpy
 matplotlib
 scipy
 
-simpleaudio
-python-vlc
-youtube-dl
+pyaudio
 PySimpleGUI

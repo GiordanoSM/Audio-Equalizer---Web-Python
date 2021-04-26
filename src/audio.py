@@ -4,17 +4,12 @@ import matplotlib.mlab as mlb
 from scipy.io.wavfile import read, write
 from numpy.fft import fft, fftfreq
 from scipy import signal
-import simpleaudio as sa
+import pyaudio
 import gui
-#PyAudio
 
-def main ():
-
-  Fs = 44100
-
+def getFilters(Fs, M):
   #print("Sampling Frequency is", Fs)
 
-  M = 1000
   window = np.hamming(M+1)
 
   filter_16k = makePassBandFilter(omega_c1= 10665, omega_c2= 21335, omega_s= Fs, ordemM= M, window= window) #(faixa = 10665 a 21335)
@@ -30,10 +25,10 @@ def main ():
 
   filters = [filter_32, filter_64, filter_125, filter_250, filter_500, filter_1k, filter_2k, filter_4k, filter_8k, filter_16k]
 
-  gui.runGUI(44100, filters)
+  return filters
 
 
-def processAudio (filename, filters, Fs, mult, debug):
+def processAudio (data, filters, Fs, mult, debug):
 
   filters = [x * np.array(y) for x, y in zip(mult, filters)]
 
@@ -64,11 +59,6 @@ def processAudio (filename, filters, Fs, mult, debug):
       
 
     filters_sum = [x + y for x,y in zip(f, filters_sum)]
-
-  print(somas)
-
-  Fs, data = read(filename)
-  data = np.array(data[:,0])
 
   #Changing the WAV type to int 16bits PCM
   if np.max(data) > 1:
@@ -141,9 +131,7 @@ def processAudio (filename, filters, Fs, mult, debug):
   #print(np.max(data_out))
 
   #play_obj.wait_done()
-
-  play_obj = sa.play_buffer(data_out, 1, 2, Fs)
-  write('out.wav', Fs, data_out)
+  #write('out.wav', Fs, data_out)
 
   return data_out
 
@@ -189,5 +177,38 @@ def getBandValues (data_out, Fs):
 
   return band_values
 
+#----------------------------------
+
+def setStream(data, filters, Fs, mult, window, debug):
+  p = pyaudio.PyAudio()
+
+  stream = p.open(format=pyaudio.paInt16,
+                  channels=1,
+                  rate=Fs,
+                  output=True,
+                  stream_callback=callback_maker(data, filters, Fs, mult, window, debug)
+                  )
+                  
+  return stream
+
+#-----------------------------------
+
+def callback_maker(data, filters, Fs, mult, window, debug):
+    def callback(in_data, frame_count, time_info, status_flags):
+        data_out = processAudio(data[:1024], filters, Fs, mult, debug)
+        band_values = getBandValues(data_out, Fs)
+        gui.updateBandBars(window, band_values)
+        del data[:1024]
+        return (data_out.tobytes(), pyaudio.paContinue)
+    return callback
+
+#------------------------------------
+
+def readData (filename):
+
+  Fs, data = read(filename)
+  data = np.array(data[:,0])
+  return data, Fs
+
 if __name__ == "__main__":
-  main()
+  gui.runGUI(44100)

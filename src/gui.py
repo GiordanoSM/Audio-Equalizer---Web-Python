@@ -2,8 +2,12 @@ import PySimpleGUI as sg
 import os
 import audio
 import numpy as np
+from scipy.io.wavfile import read, write
+import time
 
-def runGUI (Fs, filters):
+def runGUI (Fs):
+
+  filters = audio.getFilters(Fs,M=1000)
 
   file_list_line = [
     [
@@ -63,6 +67,14 @@ def runGUI (Fs, filters):
 
   debug=False
 
+  playing=False
+
+  stream=None
+
+  data=[]
+
+  stream=None
+
   while True:
     event, values = window.read()
     if event == "Exit" or event == sg.WIN_CLOSED:
@@ -83,6 +95,8 @@ def runGUI (Fs, filters):
           window["-FEEDBACK-"].update("OK")
           filename_ready = filename
           window["-FRAME-"].update(filename_ready)
+          Fs, data = read(filename)
+          data = np.array(data[:,0])
           ready=True
 
       except WrongFormat:
@@ -93,15 +107,16 @@ def runGUI (Fs, filters):
 
     elif event == "-PLAY-":
       
-      if ready:
+      if playing: print("Wait until music stops.")
+
+      elif ready:
         mult = [audio.IfromDB(values["-SLIDER32-"]), audio.IfromDB(values["-SLIDER64-"]), audio.IfromDB(values["-SLIDER125-"]),
                 audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
                 audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
-        #print(mult)        
-        data_out = audio.processAudio(filename, filters, Fs, mult, debug)
-        band_values = audio.getBandValues(data_out, Fs)
-        updateBandBars(window, band_values)
-        #print(band_values)
+
+        stream = audio.setStream(data.tolist(), filters, Fs, mult, window, debug)
+        stream.start_stream()
+        playing=True
 
     elif event == "-RESET-":
       resetSliders(window)
@@ -109,6 +124,12 @@ def runGUI (Fs, filters):
     elif event == "-STOP-":
       window["-FRAME-"].update("None")
       ready = False
+      if stream != None:
+        stream.stop_stream()
+        stream.close()
+      playing = False
+      stream = None
+      data=[]
 
     elif event == "-DEBUG-":
       debug = not debug
