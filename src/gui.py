@@ -1,13 +1,17 @@
 import PySimpleGUI as sg
 import os
-import audio
+import audio as au
 import numpy as np
 from scipy.io.wavfile import read, write
 import time
 
 def runGUI (Fs):
 
-  filters = audio.getFilters(Fs,M=1000)
+  M = 1000
+
+  frame_count= 4410
+
+  filters = au.getFilters(Fs,M)
 
   file_list_line = [
     [
@@ -67,8 +71,6 @@ def runGUI (Fs):
 
   debug=False
 
-  playing=False
-
   stream=None
 
   data=[]
@@ -77,17 +79,24 @@ def runGUI (Fs):
 
   p=None
 
+  thr=None
+
   while True:
     event, values = window.read(250)
 
-    mult_obj.value = [audio.IfromDB(values["-SLIDER32-"]), audio.IfromDB(values["-SLIDER64-"]), audio.IfromDB(values["-SLIDER125-"]),
-              audio.IfromDB(values["-SLIDER250-"]), audio.IfromDB(values["-SLIDER500-"]), audio.IfromDB(values["-SLIDER1k-"]),
-              audio.IfromDB(values["-SLIDER2k-"]), audio.IfromDB(values["-SLIDER4k-"]), audio.IfromDB(values["-SLIDER8k-"]), audio.IfromDB(values["-SLIDER16k-"])]
+    au.mutex_mult.acquire()
+    au.mult_obj.value = [au.IfromDB(values["-SLIDER32-"]), au.IfromDB(values["-SLIDER64-"]), au.IfromDB(values["-SLIDER125-"]),
+              au.IfromDB(values["-SLIDER250-"]), au.IfromDB(values["-SLIDER500-"]), au.IfromDB(values["-SLIDER1k-"]),
+              au.IfromDB(values["-SLIDER2k-"]), au.IfromDB(values["-SLIDER4k-"]), au.IfromDB(values["-SLIDER8k-"]), au.IfromDB(values["-SLIDER16k-"])]
+    au.mutex_mult.release()
 
     if event == "Exit" or event == sg.WIN_CLOSED:
       if stream != None:
         stream.stop_stream()
         stream.close()
+      au.mutex_alive.acquire()
+      au.alive=False
+      au.mutex_alive.release()
 
       if p != None:
         p.terminate()
@@ -121,12 +130,24 @@ def runGUI (Fs):
 
     elif event == "-PLAY-":
       
-      if playing: print("Press stop first.")
+      if au.alive: 
+        print("Press stop first.")
 
       elif ready:
-        stream, p = audio.setStream(data.tolist(), filters, Fs, window, debug)
+        stream, p = au.setStream(filters, Fs, window, frame_count)
+
+        pad_data = np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
+
+        thr = au.Processing(pad_data, M, Fs, frame_count, filters)
+        au.mutex_data.acquire()
+        au.alive=True
+        au.mutex_data.release()
+
+        thr.start()
+
+        time.sleep(0.2)
+        
         stream.start_stream()
-        playing=True
 
     elif event == "-RESET-":
       resetSliders(window)
@@ -137,13 +158,21 @@ def runGUI (Fs):
       if stream != None:
         stream.stop_stream()
         stream.close()
-      playing = False
+
+      au.mutex_data.acquire()
+      au.alive = False
+
+      au.data_out_obj.value = np.array([])
+      au.mutex_data.release()
+
       stream = None
       data=[]
 
     elif event == "-DEBUG-":
       debug = not debug
       window["-DEBUG-"].update(button_color="green" if debug else "red")
+
+  tr.join()
 
   window.close()
 
@@ -204,11 +233,7 @@ def updateBandBars (window, band_values):
     window["-BAR{}-".format(names[i])].update(band_values[i], max= max_v)
 
   #window["-VBARMAX-".format(names[i])].update(int(band_values[i]))
-#------------------------------------
-class FooWrapper(object):
-    def __init__(self, value):
-         self.value = value
 #----------------------------------
 
-
-mult_obj = FooWrapper([])
+if __name__ == "__main__":
+  runGUI(44100)

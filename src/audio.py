@@ -6,6 +6,7 @@ from numpy.fft import fft, fftfreq
 from scipy import signal
 import pyaudio
 import gui
+import threading as th
 
 def getFilters(Fs, M):
 
@@ -30,110 +31,15 @@ def getFilters(Fs, M):
 def processAudio (data, filters, Fs, mult, debug):
 
   filters = [x * np.array(y) for x, y in zip(mult, filters)]
-  print(mult)
+  #print(mult)
 
-  freq2 = range(0, Fs//2)
-  
-  i = 10
+  filters_sum = np.sum(filters, axis=0)
 
-  filters_sum = [0]*filters[0].size
+  data_out = np.sum(np.array(data) * filters_sum)
 
-  somas = []
-
-  if debug:
-    plt.figure(6)
-
-  for f in filters:
-    if debug:
-      #plt.figure(i)
-      A = fft(f, Fs)
-      mag = np.abs(A)[0:A.size//2]
-      mag2 = [20*np.log10(x) for x in mag]
-      plt.plot(freq2, mag2)
-      somas.append(sum(f))
-      #plt.xlabel('Frequência')
-      #plt.ylabel('Amplitude [dB]')
-      #plt.title('FFT Filtro {}'.format(i-10))
-
-      i += 1
-      
-
-    filters_sum = [x + y for x,y in zip(f, filters_sum)]
-
-  #Changing the WAV type to int 16bits PCM
-  if np.max(data) > 1:
-    if np.min(data) >= 0 and np.max(data)<= 255:
-      raise Exception("formato WAV 8-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
-    elif np.max(data) > 32767 or np.min(data) < -32767:
-      raise Exception("formato WAV 32-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
-  else: 
-    data = 32767*data
-
-  data_out = signal.convolve(data, filters_sum, mode='same')
-  data_out = data_out.astype(np.int16)
-
-  if debug:
-
-    plt.xlabel('Frequência')
-    plt.ylabel('Amplitude [dB]')
-    plt.title('FFT Filtros')
-
-    #plt.figure(1)
-    #plt.plot(data)
-    #plt.xlabel('Sample Index')
-    #plt.ylabel('Amplitude')
-    #plt.title('Waveform of Test Audio')
-
-    fft_data = fft(data)
-    freq = fftfreq(len(data),d=1/Fs)[0:len(data)//2]
-
-    plt.figure(2)
-    plt.plot(freq, np.absolute(fft_data)[0:len(data)//2])
-    plt.xlabel('Frequência (rad/sample)')
-    plt.ylabel('Amplitude')
-    plt.title('FFT')
-
-    #plt.figure(3)
-    #plt.magnitude_spectrum(data, Fs=Fs, scale='dB',window= mlb.window_none)
-
-    #plt.figure(4)
-    #plt.phase_spectrum(data, Fs=Fs, window= mlb.window_none)
-    #plt.show()
-
-    A = fft(filters_sum, Fs)
-    mag = np.abs(A)[0:A.size//2]
-    mag2 = [20*np.log10(x) for x in mag]
-
-    plt.figure(3)
-    plt.plot(freq2, mag2)
-    plt.xlabel('Frequência (rad/sample)')
-    plt.ylabel('Amplitude (dB)')
-    plt.title('FFT Filtro Somado')
-
-    #plt.figure(4)
-    #plt.plot(data_out)
-    #plt.xlabel('Sample Index')
-    #plt.ylabel('Amplitude')
-    #plt.title('Waveform of Test Audio Output')
-
-    fft_data_out = fft(data_out)
-    freq_out = fftfreq(data_out.size,d=1/Fs)[0:data_out.size//2]
-
-    plt.figure(5)
-    plt.plot(freq_out, np.absolute(fft_data_out)[0:data_out.size//2])
-    plt.xlabel('Frequência (rad/sample)')
-    plt.ylabel('Amplitude')
-    plt.title('FFT out')
-
-    plt.show()
-
-  #print(data.size)
-  #print(np.max(data_out))
-
-  #play_obj.wait_done()
-  #write('out.wav', Fs, data_out)
-
-  return data_out
+  mutex_data.acquire()
+  data_out_obj.value = np.append(data_out_obj.value, np.int16(data_out))
+  mutex_data.release()
 
 #------------------------------------
 
@@ -179,27 +85,35 @@ def getBandValues (data_out, Fs):
 
 #----------------------------------
 
-def setStream(data, filters, Fs, window, debug):
+def setStream(filters, Fs, window, frame_count):
   p = pyaudio.PyAudio()
 
   stream = p.open(format=pyaudio.paInt16,
                   channels=1,
                   rate=Fs,
                   output=True,
-                  frames_per_buffer=4410,
-                  stream_callback=callback_maker(data, filters, Fs, window, debug)
+                  frames_per_buffer= frame_count,
+                  stream_callback=callback_maker(filters, Fs, window, frame_count)
                   )
                   
   return stream, p
 
 #-----------------------------------
 
-def callback_maker(data, filters, Fs, window, debug):
+def callback_maker(filters, Fs, window, frame_count):
     def callback(in_data, frame_count, time_info, status_flags):
-        data_out = processAudio(data[:frame_count], filters, Fs, gui.mult_obj.value, debug)
+
+        mutex_data.acquire()
+        data_out = data_out_obj.value[:frame_count]
+
         band_values = getBandValues(data_out, Fs)
         gui.updateBandBars(window, band_values)
-        del data[:frame_count]
+
+        data_out_obj.value = data_out_obj.value[frame_count:]
+        cond_proc.notify()
+        mutex_data.release()
+        #print(data_out)
+
         return (data_out.tobytes(), pyaudio.paContinue)
     return callback
 
@@ -212,6 +126,53 @@ def readData (filename):
   return data, Fs
 
 #------------------------------------
+class FooWrapper(object):
+    def __init__(self, value):
+         self.value = value
+#------------------------------------
+def checkData (data):
+  #Changing the WAV type to int 16bits PCM
+  if np.max(data) > 1:
+    if np.min(data) >= 0 and np.max(data)<= 255:
+      raise Exception("formato WAV 8-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
+    elif np.max(data) > 32767 or np.min(data) < -32767:
+      raise Exception("formato WAV 32-bit PCM não suportado! Use 16-bit PCM ou 32-bit floating-point.")
+  else: 
+    data = 32767*data
+#------------------------------------
+class Processing(th.Thread):
 
-if __name__ == "__main__":
-  gui.runGUI(44100)
+  def __init__(self, data, M, Fs, frame_count, filters):
+    super().__init__()
+    self.data = data
+    self.M = M
+    self.frame_count = frame_count
+    self.filters = filters
+    self.Fs = Fs
+
+  def run(self):
+    while(len(self.data) > self.M):
+      mutex_mult.acquire()
+      processAudio(self.data[:self.M+1], self.filters, self.Fs, mult_obj.value, False)
+      mutex_mult.release()
+      self.data = self.data[1:]
+
+      mutex_data.acquire()
+      if not alive: break
+
+      #print(data_out_obj.value.size)
+      while data_out_obj.value.size >= self.frame_count:
+        cond_proc.wait()
+      mutex_data.release()
+
+
+#------------------------------------
+mutex_data = th.Lock()
+mutex_mult = th.Lock()
+mutex_alive = th.Lock()
+
+cond_proc = th.Condition(mutex_data)
+
+mult_obj = FooWrapper([])
+data_out_obj = FooWrapper(np.array([]))
+alive = False
