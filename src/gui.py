@@ -75,8 +75,6 @@ def runGUI (Fs):
 
   data=[]
 
-  stream=None
-
   p=None
 
   thr=None
@@ -134,9 +132,8 @@ def runGUI (Fs):
         print("Press stop first.")
 
       elif ready:
-        stream, p = au.setStream(filters, Fs, window, frame_count)
 
-        pad_data = np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
+        pad_data = data#np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
 
         thr = au.Processing(pad_data, M, Fs, frame_count, filters)
         au.mutex_data.acquire()
@@ -145,7 +142,11 @@ def runGUI (Fs):
 
         thr.start()
 
-        time.sleep(0.2)
+        thr.join()
+
+        print('????')
+
+        stream, p = au.setStream(filters, Fs, window, frame_count)
         
         stream.start_stream()
 
@@ -172,7 +173,7 @@ def runGUI (Fs):
       debug = not debug
       window["-DEBUG-"].update(button_color="green" if debug else "red")
 
-  tr.join()
+  #if thr != None: thr.join()
 
   window.close()
 

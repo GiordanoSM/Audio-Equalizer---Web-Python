@@ -35,10 +35,15 @@ def processAudio (data, filters, Fs, mult, debug):
 
   filters_sum = np.sum(filters, axis=0)
 
-  data_out = np.sum(np.array(data) * filters_sum)
+  M = filters_sum.size
+  pad = M-1//2
+
+  data_out = np.convolve(data, filters_sum, mode= 'same')#[pad+1:-pad]
+
+  print("AQUI", np.array(data_out).size)
 
   mutex_data.acquire()
-  data_out_obj.value = np.append(data_out_obj.value, np.int16(data_out))
+  data_out_obj.value = np.concatenate((data_out_obj.value, np.array(data_out).astype(np.int16))).astype(np.int16)
   mutex_data.release()
 
 #------------------------------------
@@ -112,7 +117,7 @@ def callback_maker(filters, Fs, window, frame_count):
         data_out_obj.value = data_out_obj.value[frame_count:]
         cond_proc.notify()
         mutex_data.release()
-        #print(data_out)
+        print("PLAYER",data_out)
 
         return (data_out.tobytes(), pyaudio.paContinue)
     return callback
@@ -149,21 +154,24 @@ class Processing(th.Thread):
     self.frame_count = frame_count
     self.filters = filters
     self.Fs = Fs
+    print("M", M)
 
   def run(self):
     while(len(self.data) > self.M):
       mutex_mult.acquire()
-      processAudio(self.data[:self.M+1], self.filters, self.Fs, mult_obj.value, False)
+      processAudio(self.data[:self.frame_count], self.filters, self.Fs, mult_obj.value, False)
       mutex_mult.release()
-      self.data = self.data[1:]
+      #self.data = self.data[self.frame_count-self.M:]
+      self.data = self.data[self.frame_count:]
 
-      mutex_data.acquire()
-      if not alive: break
+      #mutex_data.acquire()
+      #if not alive: break
 
-      #print(data_out_obj.value.size)
-      while data_out_obj.value.size >= self.frame_count:
-        cond_proc.wait()
-      mutex_data.release()
+      print(data_out_obj.value.size)
+      #while data_out_obj.value.size >= self.frame_count:
+        #cond_proc.wait()
+      #mutex_data.release()
+    return 1
 
 
 #------------------------------------
