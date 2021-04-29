@@ -38,9 +38,9 @@ def processAudio (data, filters, Fs, mult, debug):
   M = filters_sum.size
   pad = M-1//2
 
-  data_out = np.convolve(data, filters_sum, mode= 'same')#[pad+1:-pad]
+  data_out = np.convolve(data, filters_sum)[pad:-pad]
 
-  print("AQUI", np.array(data_out).size)
+  #print("AQUI", np.array(data_out).size)
 
   mutex_data.acquire()
   data_out_obj.value = np.concatenate((data_out_obj.value, np.array(data_out).astype(np.int16))).astype(np.int16)
@@ -117,7 +117,7 @@ def callback_maker(filters, Fs, window, frame_count):
         data_out_obj.value = data_out_obj.value[frame_count:]
         cond_proc.notify()
         mutex_data.release()
-        print("PLAYER",data_out)
+        #print("PLAYER",data_out)
 
         return (data_out.tobytes(), pyaudio.paContinue)
     return callback
@@ -161,8 +161,8 @@ class Processing(th.Thread):
       mutex_mult.acquire()
       processAudio(self.data[:self.frame_count], self.filters, self.Fs, mult_obj.value, False)
       mutex_mult.release()
-      #self.data = self.data[self.frame_count-self.M:]
-      self.data = self.data[self.frame_count:]
+      self.data = self.data[self.frame_count-self.M:]
+      #self.data = self.data[self.frame_count:]
 
       #mutex_data.acquire()
       #if not alive: break

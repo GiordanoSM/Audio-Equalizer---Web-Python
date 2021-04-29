@@ -133,7 +133,7 @@ def runGUI (Fs):
 
       elif ready:
 
-        pad_data = data#np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
+        pad_data = np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
 
         thr = au.Processing(pad_data, M, Fs, frame_count, filters)
         au.mutex_data.acquire()
@@ -144,7 +144,7 @@ def runGUI (Fs):
 
         thr.join()
 
-        print('????')
+        #print('????')
 
         stream, p = au.setStream(filters, Fs, window, frame_count)
         
