@@ -35,6 +35,15 @@ def processAudio (data, filters, Fs, mult, debug):
 
   filters_sum = np.sum(filters, axis=0)
 
+  if debug:
+    plt.figure(1)
+    plt.xlabel('Frequência')
+    plt.ylabel('Amplitude [dB]')
+    plt.title('FFT Filtros')
+    A = fft(filters_sum, Fs)
+    plt.plot(range(0, Fs//2), np.abs(A)[0:A.size//2])
+    plt.show()
+
   M = filters_sum.size
   pad = M-1//2
 
@@ -90,7 +99,7 @@ def getBandValues (data_out, Fs):
 
 #----------------------------------
 
-def setStream(filters, Fs, window, frame_count):
+def setStream(Fs, window, frame_count):
   p = pyaudio.PyAudio()
 
   stream = p.open(format=pyaudio.paInt16,
@@ -98,14 +107,14 @@ def setStream(filters, Fs, window, frame_count):
                   rate=Fs,
                   output=True,
                   frames_per_buffer= frame_count,
-                  stream_callback=callback_maker(filters, Fs, window, frame_count)
+                  stream_callback=callback_maker(Fs, window, frame_count)
                   )
                   
   return stream, p
 
 #-----------------------------------
 
-def callback_maker(filters, Fs, window, frame_count):
+def callback_maker(Fs, window, frame_count):
     def callback(in_data, frame_count, time_info, status_flags):
 
         mutex_data.acquire()
@@ -147,21 +156,22 @@ def checkData (data):
 #------------------------------------
 class Processing(th.Thread):
 
-  def __init__(self, data, M, Fs, frame_count, filters):
+  def __init__(self, data, M, Fs, frame_count, filters, debug=False):
     super().__init__()
     self.data = data
     self.M = M
     self.frame_count = frame_count
     self.filters = filters
     self.Fs = Fs
+    self.debug=debug
     #print("M", M)
 
   def run(self):
     while(len(self.data) > self.M):
       mutex_mult.acquire()
-      processAudio(self.data[:self.frame_count], self.filters, self.Fs, mult_obj.value, False)
+      processAudio(self.data[:self.frame_count+self.M], self.filters, self.Fs, mult_obj.value, self.debug)
       mutex_mult.release()
-      self.data = self.data[self.frame_count-self.M:]
+      self.data = self.data[self.frame_count:]
 
       mutex_data.acquire()
       if not alive: break
@@ -170,6 +180,7 @@ class Processing(th.Thread):
       while data_out_obj.value.size >= self.frame_count:
         cond_proc.wait()
       mutex_data.release()
+    mutex_data.release()
     return 1
 
 

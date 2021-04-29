@@ -135,7 +135,7 @@ def runGUI (Fs):
 
         pad_data = np.pad(data, ((int(np.floor(M/2)), int(np.floor(M/2))))).tolist()
 
-        thr = au.Processing(pad_data, M, Fs, frame_count, filters)
+        thr = au.Processing(pad_data, M, Fs, frame_count, filters, debug)
         au.mutex_data.acquire()
         au.alive=True
         au.mutex_data.release()
@@ -146,7 +146,7 @@ def runGUI (Fs):
 
         #print('????')
 
-        stream, p = au.setStream(filters, Fs, window, frame_count)
+        stream, p = au.setStream(Fs, window, frame_count)
         
         stream.start_stream()
 
