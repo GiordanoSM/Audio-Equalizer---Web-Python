@@ -142,7 +142,7 @@ def runGUI (Fs):
 
         thr.start()
 
-        thr.join()
+        #thr.join()
 
         #print('????')
 
@@ -159,8 +159,10 @@ def runGUI (Fs):
       if stream != None:
         stream.stop_stream()
         stream.close()
+        p.terminate()
 
       au.mutex_data.acquire()
+      au.cond_proc.notify()
       au.alive = False
 
       au.data_out_obj.value = np.array([])

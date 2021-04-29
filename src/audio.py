@@ -154,7 +154,7 @@ class Processing(th.Thread):
     self.frame_count = frame_count
     self.filters = filters
     self.Fs = Fs
-    print("M", M)
+    #print("M", M)
 
   def run(self):
     while(len(self.data) > self.M):
@@ -162,15 +162,14 @@ class Processing(th.Thread):
       processAudio(self.data[:self.frame_count], self.filters, self.Fs, mult_obj.value, False)
       mutex_mult.release()
       self.data = self.data[self.frame_count-self.M:]
-      #self.data = self.data[self.frame_count:]
 
-      #mutex_data.acquire()
-      #if not alive: break
+      mutex_data.acquire()
+      if not alive: break
 
-      print(data_out_obj.value.size)
-      #while data_out_obj.value.size >= self.frame_count:
-        #cond_proc.wait()
-      #mutex_data.release()
+      #print(data_out_obj.value.size)
+      while data_out_obj.value.size >= self.frame_count:
+        cond_proc.wait()
+      mutex_data.release()
     return 1
 
 
