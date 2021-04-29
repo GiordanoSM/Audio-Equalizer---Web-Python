@@ -174,13 +174,15 @@ class Processing(th.Thread):
       self.data = self.data[self.frame_count:]
 
       mutex_data.acquire()
-      if not alive: break
+      if not alive:
+        mutex_data.release() 
+        break
 
-      #print(data_out_obj.value.size)
-      while data_out_obj.value.size >= self.frame_count:
-        cond_proc.wait()
+      print(data_out_obj.value.size)
+      if not offline:
+        while data_out_obj.value.size >= self.frame_count:
+          cond_proc.wait()
       mutex_data.release()
-    mutex_data.release()
     return 1
 
 
@@ -194,3 +196,4 @@ cond_proc = th.Condition(mutex_data)
 mult_obj = FooWrapper([])
 data_out_obj = FooWrapper(np.array([]))
 alive = False
+offline = True

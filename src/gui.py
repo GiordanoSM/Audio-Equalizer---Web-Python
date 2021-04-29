@@ -142,7 +142,9 @@ def runGUI (Fs):
 
         thr.start()
 
-        #thr.join()
+        if au.offline: 
+          thr.join()
+          write("out.wav", Fs, au.data_out_obj.value)
 
         #print('????')
 
