@@ -9,7 +9,7 @@ def runGUI (Fs):
 
   M = 1000
 
-  frame_count= 4410
+  frame_count= 8192
 
   filters = au.getFilters(Fs,M)
 
@@ -119,6 +119,7 @@ def runGUI (Fs):
           if data.ndim > 1 :
             data = data[:,0]
           ready=True
+          print(np.max(data))
 
       except WrongFormat:
         window["-FEEDBACK-"].update("Formato não suportado!")
@@ -145,6 +146,7 @@ def runGUI (Fs):
         if au.offline: 
           thr.join()
           write("out.wav", Fs, au.data_out_obj.value)
+          #print(au.data_out_obj.value)
 
         #print('????')
 

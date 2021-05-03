@@ -48,6 +48,9 @@ def processAudio (data, filters, Fs, mult, debug):
   pad = M-1//2
 
   data_out = np.convolve(data, filters_sum)[pad:-pad]
+  data_out[data_out > 32767] = 32767
+  data_out[data_out < -32768] = -32768
+  #print(np.max(data_out))
 
   #print("AQUI", np.array(data_out).size)
 
@@ -178,7 +181,7 @@ class Processing(th.Thread):
         mutex_data.release() 
         break
 
-      print(data_out_obj.value.size)
+      #print(data_out_obj.value.size)
       if not offline:
         while data_out_obj.value.size >= self.frame_count:
           cond_proc.wait()
@@ -196,4 +199,4 @@ cond_proc = th.Condition(mutex_data)
 mult_obj = FooWrapper([])
 data_out_obj = FooWrapper(np.array([]))
 alive = False
-offline = True
+offline = False
